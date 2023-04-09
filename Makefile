@@ -1,0 +1,3 @@
+init:
+	go mod init postSaver
+	go get ./...
