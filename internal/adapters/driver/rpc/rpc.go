@@ -57,19 +57,22 @@ func (r *ReceiverStruct) Run() {
 	r.Server.Serve(r.Listener)
 }
 func (r *ReceiverStruct) SinglePart(ctx context.Context, in *pb.TextFieldReq) (*pb.TextFieldRes, error) {
-	//	r.l.Lock()
-	//	defer r.l.Unlock()
-	//logger.L.Infof("in rpc.SinglePart incoming request %v\n", in)
 	reqIn := repo.NewReqUnary(in)
 	r.A.HandleUnary(reqIn)
 	if reqIn.IsLast() {
-		r.A.TableSave(reqIn.TS())
+		r.A.LastAction(reqIn.TS())
 	}
+
 	res := &pb.TextFieldRes{Result: true}
 	return res, nil
 }
 
 func (r *ReceiverStruct) MultiPart(stream pb.Saver_MultiPartServer) error {
+	var (
+		reqData  *pb.FileUploadReq
+		errStore error
+		err      error
+	)
 	n := 0
 	reqInfo, err := stream.Recv()
 	//	r.l.Lock()
@@ -83,16 +86,17 @@ func (r *ReceiverStruct) MultiPart(stream pb.Saver_MultiPartServer) error {
 	r.A.HandleStream(rInfo)
 
 	for {
-		reqData, err := stream.Recv()
+		reqData, err = stream.Recv()
 		//	if n > 0 {
 		//		r.l.Lock()
 		//	}
 		//logger.L.Infof("in rpc.MultiPart looped request %v, err: %v\n", reqData, err)
 		if reqData != nil {
-			r.A.HandleStream(repo.NewReqStream(reqData))
+			//error if goes to buffer
+			errStore = r.A.HandleStream(repo.NewReqStream(reqData))
 		}
 
-		if err == io.EOF {
+		if err == io.EOF && errStore == nil {
 			//r.l.Unlock()
 			break
 		}
@@ -113,6 +117,9 @@ func (r *ReceiverStruct) MultiPart(stream pb.Saver_MultiPartServer) error {
 	err = r.A.TableSave(rInfo.TS())
 	if err != nil {
 		return err
+	}
+	if reqData != nil && reqData.GetFileData().IsLast {
+		r.A.ClearStore(reqData.GetFileData().Ts)
 	}
 
 	res := &pb.FileUploadRes{

@@ -15,8 +15,9 @@ type Store interface {
 	GetTable(string) map[string]repo.NameNumber
 	//GetTableIn(*time.Timer, string)
 	BufferAdd(repo.Request)
-	ReleaseBuffer() ([]repo.Request, []error)
+	ReleaseBuffer() ([]repo.Request, error)
 	RequestMatched(repo.Request) bool
+	CleanTableMap(string)
 }
 
 type StoreStruct struct {
@@ -41,7 +42,12 @@ func (s *StoreStruct) CheckTS(ts string) bool {
 	return false
 }
 func (s *StoreStruct) ToTable(r repo.Request) error {
-	//logger.L.Infof("store.ToTable invoked by Request name %q, number %d, s.T: %v\n", r.Name(), r.Number(), s.T)
+	/*
+		if _, ok := s.T[r.TS()][r.Name()]; !ok {
+			logger.L.Infof("store.ToTable invoked by Request name %q, number %d, s.T: %v\n", r.Name(), r.Number(), s.T)
+			defer logger.L.Infof("in store.ToTable after all s.T: %v\n", s.T)
+		}
+	*/
 	l2 := make(map[string]repo.NameNumber)
 	//logger.L.Infof("in store.ToTable r: %v, number: %d, r.FileName() %q, len(r.FileName()): %d\n", r, number, r.FileName(), len(r.FileName()))
 	switch {
@@ -205,18 +211,17 @@ func Swap(s []repo.Request, i, j int) {
 	s[j] = e
 }
 
-func (s *StoreStruct) ReleaseBuffer() ([]repo.Request, []error) {
+func (s *StoreStruct) ReleaseBuffer() ([]repo.Request, error) {
 
 	s.rwl.Lock()
 	defer s.rwl.Unlock()
 
-	reqs, errs, ids := make([]repo.Request, 0), make([]error, 0), repo.IDsToRemove{}
+	reqs, ids := make([]repo.Request, 0), repo.IDsToRemove{}
 
 	//logger.L.Infof("in store.ReleaseBuffer s.B = %v\n", s.B)
 
 	if len(s.B) == 0 {
-		errs = append(errs, fmt.Errorf("in store.ReleaseBuffer buffer has no elements"))
-		return nil, errs
+		return nil, fmt.Errorf("in store.ReleaseBuffer buffer has no elements")
 	}
 	found := false
 	for _, v := range s.B {
@@ -225,8 +230,7 @@ func (s *StoreStruct) ReleaseBuffer() ([]repo.Request, []error) {
 		}
 	}
 	if !found {
-		errs = append(errs, fmt.Errorf("in store.ReleaseBuffer buffer has no elements"))
-		return nil, errs
+		return nil, fmt.Errorf("in store.ReleaseBuffer buffer has no elements")
 	}
 
 	for i, v := range s.B {
@@ -238,10 +242,7 @@ func (s *StoreStruct) ReleaseBuffer() ([]repo.Request, []error) {
 				if record, ok := m1[w.Name()]; ok {
 
 					if record.Number == w.Number() {
-						/*
-							record.Number++
-							m1[w.Name()] = record
-						*/
+
 						reqs = append(reqs, w)
 						ids.Add(repo.NewIDToRemove(i, j))
 
@@ -306,4 +307,11 @@ func (s *StoreStruct) RequestMatched(r repo.Request) bool {
 		}
 	}
 	return false
+}
+
+func (s *StoreStruct) CleanTableMap(ts string) {
+	delete(s.T, ts)
+	if len(s.T) == 0 {
+		s.T = make(map[string]map[string]repo.NameNumber)
+	}
 }
