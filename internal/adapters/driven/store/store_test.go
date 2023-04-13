@@ -903,9 +903,9 @@ func (s *storeSuite) TestReleaseuffer() {
 	}
 	for _, v := range tt {
 		s.Run(v.name, func() {
-			gotReqs, gotErrs := v.store.ReleaseBuffer()
-			if len(gotErrs) > 0 {
-				s.Equal(v.wantErrors, gotErrs)
+			gotReqs, gotErr := v.store.ReleaseBuffer()
+			if gotErr != nil {
+				s.Equal(v.wantErrors, gotErr)
 			}
 			s.Equal(v.wantStore, v.store)
 			s.Equal(v.wantReqs, gotReqs)

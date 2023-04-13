@@ -31,7 +31,7 @@ func NewSaver(path string) (*SaverStruct, error) {
 
 		if os.IsNotExist(err) {
 
-			os.Mkdir(path, 777)
+			os.Mkdir(path, 0777)
 
 			return &SaverStruct{Path: path, F: f}, nil
 		}
@@ -48,7 +48,7 @@ func (sv *SaverStruct) FileCreate(r repo.Request) (string, error) {
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = os.Mkdir(sv.Path, 0755)
+			err = os.Mkdir(sv.Path, 0777)
 			if err != nil {
 				return "", fmt.Errorf("in saver.FileCreate unable to create folder %q: %v", sv.Path, err)
 			}
@@ -65,7 +65,7 @@ func (sv *SaverStruct) FileCreate(r repo.Request) (string, error) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			//logger.L.Infoln("in saver.FileCreate creating folder")
-			err = os.Mkdir(folderPath, 0755)
+			err = os.Mkdir(folderPath, 0777)
 			if err != nil {
 				return "", fmt.Errorf("in saver.FileCreate unable to create folder %q: %v", folderPath, err)
 			}
