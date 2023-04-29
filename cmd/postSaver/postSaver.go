@@ -1,17 +1,18 @@
+// Assembly point
 package main
 
 import (
-	"postSaver/internal/adapters/application"
-	"postSaver/internal/adapters/driven/saver"
-	"postSaver/internal/adapters/driven/store"
+	"github.com/vynovikov/postSaver/internal/adapters/application"
+	"github.com/vynovikov/postSaver/internal/adapters/driven/saver"
+	"github.com/vynovikov/postSaver/internal/adapters/driven/store"
 
-	"postSaver/internal/adapters/driver/rpc"
-	"postSaver/internal/logger"
+	"github.com/vynovikov/postSaver/internal/adapters/driver/rpc"
+	"github.com/vynovikov/postSaver/internal/logger"
 )
 
+// Tested in postSaver_test.go
 func main() {
 	store := store.NewStore()
-	//recorder := recorder.NewRecorder()
 	saver, err := saver.NewSaver("results")
 	if err != nil {
 		logger.L.Errorf("in main.main cannot create saver: %v\n", err)

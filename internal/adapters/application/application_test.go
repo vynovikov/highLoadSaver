@@ -1,11 +1,12 @@
 package application
 
 import (
-	"postSaver/internal/adapters/driven/store"
-	"postSaver/internal/adapters/driver/rpc/pb"
-	"postSaver/internal/repo"
 	"testing"
 	"time"
+
+	"github.com/vynovikov/postSaver/internal/adapters/driven/store"
+	"github.com/vynovikov/postSaver/internal/adapters/driver/rpc/pb"
+	"github.com/vynovikov/postSaver/internal/repo"
 
 	"github.com/stretchr/testify/suite"
 )
@@ -20,7 +21,7 @@ func TestApplicationSuite(t *testing.T) {
 
 var testApp *ApplicationStruct
 
-func (s *applicationSuite) TestHandleUnart() {
+func (s *applicationSuite) TestHandleUnary() {
 	tt := []struct {
 		name      string
 		store     store.Store
@@ -134,8 +135,4 @@ func (s *applicationSuite) TestHandleUnart() {
 			s.Equal(v.wantStore, app.St)
 		})
 	}
-}
-
-func (s *applicationSuite) TestHandleStream() {
-
 }

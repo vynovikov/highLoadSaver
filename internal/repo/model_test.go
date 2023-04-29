@@ -2,8 +2,9 @@ package repo
 
 import (
 	"log"
-	"postSaver/internal/adapters/driver/rpc/pb"
 	"testing"
+
+	"github.com/vynovikov/postSaver/internal/adapters/driver/rpc/pb"
 
 	"github.com/stretchr/testify/suite"
 )

@@ -8,12 +8,13 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"postSaver/internal/adapters/driver/rpc/pb"
-	"postSaver/internal/logger"
-	"postSaver/internal/repo"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/vynovikov/postSaver/internal/adapters/driver/rpc/pb"
+	"github.com/vynovikov/postSaver/internal/logger"
+	"github.com/vynovikov/postSaver/internal/repo"
 
 	"github.com/goccy/go-json"
 	"github.com/stretchr/testify/suite"
@@ -203,7 +204,6 @@ func (s *mainSuite) TestWorkFlow() {
 								FieldName: "alice",
 								Number:    uint32(0),
 								ByteChunk: []byte("azaza"),
-								IsLast:    false,
 							},
 						},
 					},
@@ -280,8 +280,6 @@ func (s *mainSuite) TestWorkFlow() {
 				"alice": []byte("azazabzbzbz"),
 			},
 		},
-
-		// 2 streams and streams + unary combination
 		{
 			name: "2 streams 2 parts correct order",
 			ts:   "007",
@@ -306,7 +304,6 @@ func (s *mainSuite) TestWorkFlow() {
 								FieldName: "alice",
 								Number:    uint32(0),
 								ByteChunk: []byte("azaza"),
-								IsLast:    false,
 							},
 						},
 					},
@@ -319,7 +316,6 @@ func (s *mainSuite) TestWorkFlow() {
 								FieldName: "alice",
 								Number:    uint32(1),
 								ByteChunk: []byte("bzbzbz"),
-								IsLast:    true,
 							},
 						},
 					},
@@ -328,7 +324,6 @@ func (s *mainSuite) TestWorkFlow() {
 					R: &pb.FileUploadReq{
 						Info: &pb.FileUploadReq_FileInfo{
 							FileInfo: &pb.FileInfo{
-								IsFirst:   true,
 								Ts:        "007",
 								FieldName: "bob",
 								FileName:  "second.txt",
@@ -344,7 +339,6 @@ func (s *mainSuite) TestWorkFlow() {
 								FieldName: "bob",
 								Number:    uint32(0),
 								ByteChunk: []byte("11111"),
-								IsLast:    false,
 							},
 						},
 					},
@@ -397,7 +391,6 @@ func (s *mainSuite) TestWorkFlow() {
 								FieldName: "alice",
 								Number:    uint32(1),
 								ByteChunk: []byte("bzbzbz"),
-								IsLast:    true,
 							},
 						},
 					},
@@ -465,7 +458,6 @@ func (s *mainSuite) TestWorkFlow() {
 			},
 		},
 
-		// test req ts mixture
 		{
 			name: "2 streams 2 parts correct order && 3 unaries between them",
 			reqs: []repo.Request{
@@ -920,7 +912,7 @@ func ResultExamine(reqs []repo.Request) (map[string]string, map[string][]byte, e
 			ts = v.TS()
 		}
 	}
-	rootPath := "../results" + "/" + ts
+	rootPath := "results" + "/" + ts
 	tm, fcm := make(map[string]string), make(map[string][]byte)
 	_, err := os.Stat(rootPath)
 	if err != nil {
@@ -948,7 +940,7 @@ func ResultExamine(reqs []repo.Request) (map[string]string, map[string][]byte, e
 				if err != nil {
 					return fmt.Errorf("in main.ResultExamine unable to decode file \"%s\": %v\n", path, err)
 				}
-				//logger.L.Infof("in main.ResultExamine \"%s\": decoded into %v len %d\n", path, m, len(m))
+				//logger.L.Infof("in main.ResultExamine \"%s\": decoded into %v len %d\n", path, tm, len(tm))
 
 				f.Close()
 				return nil

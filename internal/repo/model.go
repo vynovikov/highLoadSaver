@@ -1,7 +1,8 @@
+// Helper pachage for types and functions
 package repo
 
 import (
-	"postSaver/internal/adapters/driver/rpc/pb"
+	"github.com/vynovikov/postSaver/internal/adapters/driver/rpc/pb"
 )
 
 type ReqData struct {
@@ -47,17 +48,17 @@ func NewReqStream(r *pb.FileUploadReq) *ReqStream {
 }
 
 type Request interface {
-	IsFirst() bool
-	IsLast() bool
-	TS() string
-	Name() string
-	FileName() string
-	Number() int
-	GetBody() []byte
-	IsUnary() bool
-	IsStreamInfo() bool
-	IsStreamData() bool
-	Unwrap() interface{}
+	IsFirst() bool       // Returns IsFirst
+	IsLast() bool        // Returns IsFirst
+	TS() string          // Returns TS
+	Name() string        // Returns FieldName
+	FileName() string    // Returns FileName
+	Number() int         // Returns Number
+	GetBody() []byte     // Returns request body
+	IsUnary() bool       // Returns true if request is an unary
+	IsStreamInfo() bool  // Returns true if request is a stream and has FileUploadReq_FileInfo field
+	IsStreamData() bool  // Returns true if request is a stream and has FileUploadReq_FileData field
+	Unwrap() interface{} // Returns initial request
 }
 
 func (u *ReqUnary) IsFirst() bool {
@@ -122,7 +123,6 @@ func (s *ReqStream) Name() string {
 	return s.R.GetFileInfo().FieldName
 }
 func (s *ReqStream) FileName() string {
-	//logger.L.Infof("in repo.FileName s.R.GetFileInfo() = %v, s.R.GetFileInfo() == nil? %t, s.R.GetFileData() = %v, s.R.GetFileData() != nil? %t\n", s.R.GetFileInfo(), s.R.GetFileInfo() == nil, s.R.GetFileData(), s.R.GetFileData() != nil)
 	if s.R.GetFileData() != nil {
 		return ""
 	}
@@ -175,6 +175,8 @@ type IDsToRemove struct {
 	I  []int
 }
 
+// Add appends new element to *IDsToRemove.
+// Tested in models_test.go
 func (i *IDsToRemove) Add(j IDToRemove) {
 	if i.TS == "" {
 		i.TS = j.TS
@@ -185,16 +187,3 @@ func (i *IDsToRemove) Add(j IDToRemove) {
 		i.I = append(i.I, j.I)
 	}
 }
-
-/*
-func (i IDsToRemove) TS() string {
-	return i.TS()
-}
-
-
-func (i IDsToRemove) I(ts string) []int{
-	res:=make([]int,0)
-	if
-	return res
-}
-*/

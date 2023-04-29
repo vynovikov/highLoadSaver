@@ -1,19 +1,21 @@
+// Store adapter.
+// Manages data being saved
 package store
 
 import (
 	"bytes"
 	"fmt"
-	"postSaver/internal/repo"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/vynovikov/postSaver/internal/repo"
 )
 
 type Store interface {
 	CheckTS(string) bool
 	ToTable(repo.Request) error
 	GetTable(string) map[string]repo.NameNumber
-	//GetTableIn(*time.Timer, string)
 	BufferAdd(repo.Request)
 	ReleaseBuffer() ([]repo.Request, error)
 	RequestMatched(repo.Request) bool
@@ -28,9 +30,11 @@ type StoreStruct struct {
 
 func NewStore() *StoreStruct {
 	t := make(map[string]map[string]repo.NameNumber)
+	b := make(map[string][]repo.Request)
 
 	return &StoreStruct{
 		T: t,
+		B: b,
 	}
 }
 func (s *StoreStruct) CheckTS(ts string) bool {
@@ -41,22 +45,19 @@ func (s *StoreStruct) CheckTS(ts string) bool {
 	}
 	return false
 }
+
+// ToTable invokes for every request and updates store.T.
+// Tested in store_test.go
 func (s *StoreStruct) ToTable(r repo.Request) error {
-	/*
-		if _, ok := s.T[r.TS()][r.Name()]; !ok {
-			logger.L.Infof("store.ToTable invoked by Request name %q, number %d, s.T: %v\n", r.Name(), r.Number(), s.T)
-			defer logger.L.Infof("in store.ToTable after all s.T: %v\n", s.T)
-		}
-	*/
 	l2 := make(map[string]repo.NameNumber)
-	//logger.L.Infof("in store.ToTable r: %v, number: %d, r.FileName() %q, len(r.FileName()): %d\n", r, number, r.FileName(), len(r.FileName()))
+	//defer logger.L.Infof("in store.ToTable s.T became %v\n", s.T)
+
 	switch {
 	case len(r.FileName()) == 0:
 		l2[r.Name()] = repo.NewNameNumber(string(r.GetBody()), 0)
 	case len(r.FileName()) > 0:
 		l2[r.Name()] = repo.NewNameNumber(r.FileName(), 0)
 	}
-	//logger.L.Infof("in store.ToTable after all l2: %v, r.Filename = %s\n", l2, r.FileName())
 	s.rwl.Lock()
 	defer s.rwl.Unlock()
 	if m1, ok1 := s.T[r.TS()]; ok1 {
@@ -72,12 +73,10 @@ func (s *StoreStruct) ToTable(r repo.Request) error {
 		case len(r.FileName()) > 0:
 			s.T[r.TS()][r.Name()] = repo.NewNameNumber(r.FileName(), 0)
 		}
-		//logger.L.Infof("in store.ToTable after all s.T: %v\n", s.T)
 		return nil
 	}
 
 	s.T[r.TS()] = l2
-	//logger.L.Infof("in store.ToTable after all s.T: %v\n", s.T)
 	return nil
 
 }
@@ -91,9 +90,11 @@ func (s *StoreStruct) GetTable(ts string) map[string]repo.NameNumber {
 
 func (s *StoreStruct) GetTableIn(tmr *time.Timer, ts string) {
 	<-tmr.C
-	//logger.L.Infof("in store.GetTableIn table is %v\n", s.GetTable(ts))
 }
 
+// BufferAdd adds request to buffer.
+// Keeps buffer being sorter after each addition.
+// Tested in store_test.go
 func (s *StoreStruct) BufferAdd(r repo.Request) {
 	s.rwl.Lock()
 	defer s.rwl.Unlock()
@@ -180,7 +181,6 @@ func (s *StoreStruct) BufferAdd(r repo.Request) {
 			}
 		}
 	}
-	//logger.L.Infof("in store.BufferAdd s.B: %v, s.T: %v\n", s.B, s.T)
 }
 
 func Equal(a, b repo.Request) bool {
@@ -211,14 +211,14 @@ func Swap(s []repo.Request, i, j int) {
 	s[j] = e
 }
 
+// ReleaseBuffer retuns requests which can be saved.
+// Tested in store_test.go
 func (s *StoreStruct) ReleaseBuffer() ([]repo.Request, error) {
 
 	s.rwl.Lock()
 	defer s.rwl.Unlock()
 
 	reqs, ids := make([]repo.Request, 0), repo.IDsToRemove{}
-
-	//logger.L.Infof("in store.ReleaseBuffer s.B = %v\n", s.B)
 
 	if len(s.B) == 0 {
 		return nil, fmt.Errorf("in store.ReleaseBuffer buffer has no elements")
@@ -255,6 +255,9 @@ func (s *StoreStruct) ReleaseBuffer() ([]repo.Request, error) {
 	return reqs, nil
 }
 
+// CleanBuffer deletes requests from buffer.
+// Buffer remains sorted after deletion.
+// Tested in store_test.go
 func (s *StoreStruct) CleanBuffer(ids repo.IDsToRemove) {
 
 	if len(ids.I) == 0 {
@@ -275,7 +278,6 @@ func (s *StoreStruct) CleanBuffer(ids repo.IDsToRemove) {
 	})
 	//cutting off the beginning
 	for j := range s.B[ts] {
-		//logger.L.Infof("store.CleanBuffer j = %d, s.B[ids.TS][j].TS(): %v\n", j, s.B[ids.TS][j].TS())
 		if s.B[ts][j].TS() != "" {
 			s.B[ts] = s.B[ts][j:]
 			break
@@ -287,8 +289,8 @@ func (s *StoreStruct) CleanBuffer(ids repo.IDsToRemove) {
 
 }
 
+// RequestMatched returns true if request is in store.T
 func (s *StoreStruct) RequestMatched(r repo.Request) bool {
-	//logger.L.Infof("store.RequestMatched invoked for r: %v, s.T: %v \n", r, s.T[r.TS()])
 
 	if r.IsStreamInfo() || r.IsUnary() {
 		return true
@@ -301,7 +303,6 @@ func (s *StoreStruct) RequestMatched(r repo.Request) bool {
 	}
 
 	if rec, ok := s.T[r.TS()][r.Name()]; ok {
-		//logger.L.Infof("in store.RequestMatched rec number = %d, r number = %d \n", rec.Number, r.Number())
 		if r.Number() == rec.Number {
 			return true
 		}

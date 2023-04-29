@@ -2,10 +2,11 @@ package saver
 
 import (
 	"os"
-	"postSaver/internal/adapters/driver/rpc/pb"
-	"postSaver/internal/logger"
-	"postSaver/internal/repo"
 	"testing"
+
+	"github.com/vynovikov/postSaver/internal/adapters/driver/rpc/pb"
+	"github.com/vynovikov/postSaver/internal/logger"
+	"github.com/vynovikov/postSaver/internal/repo"
 
 	"github.com/stretchr/testify/suite"
 )

@@ -1,3 +1,4 @@
+// Receiver adapter
 package rpc
 
 import (
@@ -5,11 +6,12 @@ import (
 	"io"
 	"net"
 	"os"
-	"postSaver/internal/adapters/application"
-	"postSaver/internal/adapters/driver/rpc/pb"
-	"postSaver/internal/logger"
-	"postSaver/internal/repo"
 	"sync"
+
+	"github.com/vynovikov/postSaver/internal/adapters/application"
+	"github.com/vynovikov/postSaver/internal/adapters/driver/rpc/pb"
+	"github.com/vynovikov/postSaver/internal/logger"
+	"github.com/vynovikov/postSaver/internal/repo"
 
 	"google.golang.org/grpc"
 )
@@ -56,17 +58,18 @@ func (r *ReceiverStruct) Run() {
 	}
 	r.Server.Serve(r.Listener)
 }
+
+// SinglrPart makes *ReceiverStruct to implement pb.SaverServer interface.
+// Initial point where gRPC unary requests are handled in saver
 func (r *ReceiverStruct) SinglePart(ctx context.Context, in *pb.TextFieldReq) (*pb.TextFieldRes, error) {
 	reqIn := repo.NewReqUnary(in)
 	r.A.HandleUnary(reqIn)
-	if reqIn.IsLast() {
-		r.A.LastAction(reqIn.TS())
-	}
-
 	res := &pb.TextFieldRes{Result: true}
 	return res, nil
 }
 
+// MultiPart makes *ReceiverStruct to implement pb.SaverServer interface.
+// Initial point where gRPC stream requests are handled in saver
 func (r *ReceiverStruct) MultiPart(stream pb.Saver_MultiPartServer) error {
 	var (
 		reqData  *pb.FileUploadReq
@@ -75,29 +78,21 @@ func (r *ReceiverStruct) MultiPart(stream pb.Saver_MultiPartServer) error {
 	)
 	n := 0
 	reqInfo, err := stream.Recv()
-	//	r.l.Lock()
 	if err != nil {
 		return err
 	}
-	//logger.L.Infof("in rpc.MultiPart initial request %v\n", reqInfo)
-	//logger.L.Infof("in rpc.MultiPart fileName: %s\n", reqInfo.GetFileInfo().FileName)
 
 	rInfo := repo.NewReqStream(reqInfo)
 	r.A.HandleStream(rInfo)
 
 	for {
 		reqData, err = stream.Recv()
-		//	if n > 0 {
-		//		r.l.Lock()
-		//	}
-		//logger.L.Infof("in rpc.MultiPart looped request %v, err: %v\n", reqData, err)
 		if reqData != nil {
 			//error if goes to buffer
 			errStore = r.A.HandleStream(repo.NewReqStream(reqData))
 		}
 
 		if err == io.EOF && errStore == nil {
-			//r.l.Unlock()
 			break
 		}
 
@@ -106,21 +101,11 @@ func (r *ReceiverStruct) MultiPart(stream pb.Saver_MultiPartServer) error {
 			return err
 		}
 
-		//logger.L.Infof("in main.MultiPart request number %v\n", reqData.GetFileData().Number)
-		//logger.L.Infof("in main.MultiPart request GetFileInfo: %v, is nil? %t; GetFileData: %v, is nil? %t\n", reqData.GetFileInfo(), reqData.GetFileInfo() == nil, reqData.GetFileData(), reqData.GetFileData() == nil)
 		n++
-		//	r.l.Unlock()
+
 	}
 
 	r.A.FileClose(rInfo)
-
-	err = r.A.TableSave(rInfo.TS())
-	if err != nil {
-		return err
-	}
-	if reqData != nil && reqData.GetFileData().IsLast {
-		r.A.ClearStore(reqData.GetFileData().Ts)
-	}
 
 	res := &pb.FileUploadRes{
 		FileName: "filename",

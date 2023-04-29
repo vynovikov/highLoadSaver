@@ -2,9 +2,10 @@ package store
 
 import (
 	"errors"
-	"postSaver/internal/adapters/driver/rpc/pb"
-	"postSaver/internal/repo"
 	"testing"
+
+	"github.com/vynovikov/postSaver/internal/adapters/driver/rpc/pb"
+	"github.com/vynovikov/postSaver/internal/repo"
 
 	"github.com/stretchr/testify/suite"
 )
