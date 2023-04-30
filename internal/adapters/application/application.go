@@ -17,24 +17,29 @@ import (
 )
 
 type ApplicationStruct struct {
-	St    store.Store
-	Sv    saver.Saver
-	timer *time.Timer
-	l     sync.Mutex
+	St       store.Store
+	Sv       saver.Saver
+	stopping bool
+	timer    *time.Timer
+	done     chan struct{}
+	l        sync.Mutex
 }
 
 func NewAppStoreOnly(st store.Store) *ApplicationStruct {
+	done := make(chan struct{})
 	return &ApplicationStruct{
-		St: st,
+		St:   st,
+		done: done,
 	}
 }
 
-func NewApp(st store.Store, sv saver.Saver) *ApplicationStruct {
-
+func NewApp(st store.Store, sv saver.Saver) (*ApplicationStruct, chan struct{}) {
+	done := make(chan struct{})
 	return &ApplicationStruct{
-		St: st,
-		Sv: sv,
-	}
+		St:   st,
+		Sv:   sv,
+		done: done,
+	}, done
 }
 
 type Application interface {
@@ -44,6 +49,7 @@ type Application interface {
 	TableSave(string) error
 	ClearStore(string)
 	LastAction(string)
+	Stop()
 }
 
 // HandleUnary saves request data to .json table.
@@ -66,6 +72,9 @@ func (a *ApplicationStruct) HandleUnary(r repo.Request) {
 	}
 	if r.IsLast() {
 		go a.LastAction(r.TS())
+		if a.stopping {
+			close(a.done)
+		}
 	}
 
 }
@@ -97,6 +106,9 @@ func (a *ApplicationStruct) HandleStream(r repo.Request) error {
 		}
 		if r.IsLast() {
 			go a.LastAction(r.TS())
+			if a.stopping {
+				close(a.done)
+			}
 			return nil
 		}
 		reqs, err := a.St.ReleaseBuffer()
@@ -111,6 +123,9 @@ func (a *ApplicationStruct) HandleStream(r repo.Request) error {
 			}
 			if v.IsLast() {
 				go a.LastAction(v.TS())
+				if a.stopping {
+					close(a.done)
+				}
 				return nil
 			}
 		}
@@ -142,4 +157,11 @@ func (a *ApplicationStruct) ClearStore(ts string) {
 	a.l.Lock()
 	defer a.l.Unlock()
 	a.St.CleanTableMap(ts)
+}
+
+func (a *ApplicationStruct) Stop() {
+	a.stopping = true
+	if !a.St.Busy() {
+		close(a.done)
+	}
 }

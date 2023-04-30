@@ -20,6 +20,7 @@ type Store interface {
 	ReleaseBuffer() ([]repo.Request, error)
 	RequestMatched(repo.Request) bool
 	CleanTableMap(string)
+	Busy() bool
 }
 
 type StoreStruct struct {
@@ -315,4 +316,8 @@ func (s *StoreStruct) CleanTableMap(ts string) {
 	if len(s.T) == 0 {
 		s.T = make(map[string]map[string]repo.NameNumber)
 	}
+}
+
+func (s *StoreStruct) Busy() bool {
+	return !(len(s.B) == 0 || len(s.T) == 0)
 }

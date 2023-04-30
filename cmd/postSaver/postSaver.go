@@ -2,6 +2,10 @@
 package main
 
 import (
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/vynovikov/postSaver/internal/adapters/application"
 	"github.com/vynovikov/postSaver/internal/adapters/driven/saver"
 	"github.com/vynovikov/postSaver/internal/adapters/driven/store"
@@ -17,7 +21,18 @@ func main() {
 	if err != nil {
 		logger.L.Errorf("in main.main cannot create saver: %v\n", err)
 	}
-	app := application.NewApp(store, saver)
+	app, done := application.NewApp(store, saver)
 	receiver := rpc.NewReceiver(app)
-	receiver.Run()
+	go receiver.Run()
+	go SignalListen(app)
+	<-done
+	logger.L.Errorln("postSaver is interrupted")
+}
+
+// SignalListen listens for Interrupt signal, when receiving one invokes stop function
+func SignalListen(app application.Application) {
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT)
+	<-sigChan
+	go app.Stop()
 }
