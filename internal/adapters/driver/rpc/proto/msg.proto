@@ -1,47 +1,11 @@
 syntax = "proto3";
-
-package rpc;
-
+package serialize;
 option go_package = "./pb";
 
-message TextFieldReq {
+message Message{
     string ts = 1;
-    string name = 2;
-    string filename = 3;
-    bytes byteChunk = 4;    
-    bool isFirst = 5;
-    bool isLast = 6;
-}
-
-message TextFieldRes {    
-    bool result = 1;
-}
-
-message FileInfo{
-    string ts = 1;
-    string fieldName = 2;
-    string fileName = 3;
-    bool isFirst = 4;
-    
-}
-
-message FileData{
-    string ts = 1;
-    string fieldName = 2;
-    uint32 number = 3;
-    bytes byteChunk = 4;
-    bool isLast = 5;
-    
-}
-
-message FileUploadReq {
-    oneof info {
-        FileInfo fileInfo = 1;
-        FileData fileData = 2;
-    }
-}
-
-message FileUploadRes {    
-    string fileName = 1;
-    uint32 fileSize = 2;
+    string form_name = 2;
+    string file_name = 3;
+    bytes field_value = 4;
+    bool last = 5;
 }

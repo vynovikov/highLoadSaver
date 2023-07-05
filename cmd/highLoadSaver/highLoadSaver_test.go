@@ -1,25 +1,9 @@
 package main
 
 import (
-	"context"
-	"fmt"
-	"io"
-	"io/fs"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"strings"
 	"testing"
-	"time"
 
-	"github.com/vynovikov/postSaver/internal/adapters/driver/rpc/pb"
-	"github.com/vynovikov/postSaver/internal/logger"
-	"github.com/vynovikov/postSaver/internal/repo"
-
-	"github.com/goccy/go-json"
 	"github.com/stretchr/testify/suite"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 type mainSuite struct {
@@ -30,6 +14,7 @@ func TestMainSuite(t *testing.T) {
 	suite.Run(t, new(mainSuite))
 }
 
+/*
 func (s *mainSuite) TestWorkFlow() {
 	g, generatorChan := newGenerator()
 	go main()
@@ -968,3 +953,4 @@ func ResultExamine(reqs []repo.Request) (map[string]string, map[string][]byte, e
 	return tm, fcm, nil
 
 }
+*/

@@ -7,27 +7,26 @@ import (
 	"os"
 	"sync"
 
-	"github.com/vynovikov/postSaver/internal/repo"
-
 	json "github.com/goccy/go-json"
+	"github.com/vynovikov/highLoadSaver/internal/adapters/driver/rpc/pb"
+	"github.com/vynovikov/highLoadSaver/internal/logger"
+	"github.com/vynovikov/highLoadSaver/internal/repo"
 )
 
 type Saver interface {
-	FileCreate(repo.Request) (string, error)
-	FileWrite(repo.Request) error
-	FileClose(repo.Request) error
-	TableSave(map[string]repo.NameNumber, string) error
-	tableSave(map[string]string, string) error
+	Save(*pb.Message) error
 }
 
 type SaverStruct struct {
 	Path string
-	F    map[string]*os.File
+	F    map[string]*repo.FileInfo
+	T    map[string]string
 	l    sync.Mutex
 }
 
 func NewSaver(path string) (*SaverStruct, error) {
-	f := make(map[string]*os.File)
+	f := make(map[string]*repo.FileInfo)
+	t := make(map[string]string)
 	_, err := os.Stat(path)
 
 	if err != nil {
@@ -36,134 +35,122 @@ func NewSaver(path string) (*SaverStruct, error) {
 
 			os.Mkdir(path, 0777)
 
-			return &SaverStruct{Path: path, F: f}, nil
+			return &SaverStruct{Path: path, F: f, T: t}, nil
 		}
 		return &SaverStruct{}, err
 	}
-	return &SaverStruct{Path: path, F: f}, nil
+	return &SaverStruct{Path: path, F: f, T: t}, nil
 }
 
-// FileCreate returns path of file to save request data.
-// Creates file if necessary.
-// Tested in saver_test.go
-func (sv *SaverStruct) FileCreate(r repo.Request) (string, error) {
-	sv.l.Lock()
-	defer sv.l.Unlock()
+func (s *SaverStruct) Save(m *pb.Message) error {
+	if len(s.T) == 0 {
+		s.createFolder(m.Ts)
+	}
+	//logger.L.Infof("in saver.Save after receiving m %v, s.T became %v\n", m, s.T)
 
-	_, err := os.Stat(sv.Path)
-
-	if err != nil {
-		if os.IsNotExist(err) {
-			err = os.Mkdir(sv.Path, 0777)
-			if err != nil {
-				return "", fmt.Errorf("in saver.FileCreate unable to create folder %q: %v", sv.Path, err)
-			}
-		} else {
-			return "", fmt.Errorf("in saver.FileCreate error while finding folder %q: %v", sv.Path, err)
+	if len(m.FileName) > 0 {
+		filePath, err := s.saveToFile(m)
+		if err != nil {
+			return err
 		}
-
-	}
-
-	folderPath := sv.Path + "/" + r.TS()
-
-	_, err = os.Stat(folderPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			err = os.Mkdir(folderPath, 0777)
-			if err != nil {
-				return "", fmt.Errorf("in saver.FileCreate unable to create folder %q: %v", folderPath, err)
-			}
-		} else {
-			return "", fmt.Errorf("in saver.FileCreate error while finding folder %q: %v", folderPath, err)
+		if _, ok := s.T[m.FormName]; !ok {
+			s.T[m.FormName] = filePath
 		}
-
-	}
-	filePath := folderPath + "/" + r.FileName()
-	f, err := os.Create(filePath)
-	if err != nil {
-		return "", fmt.Errorf("in saver.FileCreate creating file %q failed: %v\n", filePath, err)
+	} else {
+		s.T[m.FormName] = string(m.FieldValue)
 	}
 
-	sv.F[r.Name()] = f
-	return filePath, nil
-
+	if m.Last {
+		err := s.saveToTable(m)
+		if err != nil {
+			return err
+		}
+		s.closeFiles()
+		s.reset()
+	}
+	return nil
 }
-
-// Tested in saver_test.go
-func (sv *SaverStruct) FileWrite(r repo.Request) error {
-	f := sv.F[r.Name()]
-	_, err := f.Write(r.GetBody())
+func (s *SaverStruct) createFolder(ts string) error {
+	folderName := "results" + "/" + ts
+	err := os.Mkdir(folderName, 0777)
 	if err != nil {
-		return fmt.Errorf("in saver.FileWrite wiriting to file associated with form %q failed: %v\n", r.Name(), err)
+		return fmt.Errorf("in saver.createFolder unable to create folder %q: %v", folderName, err)
 	}
 	return nil
 }
 
-func (sv *SaverStruct) FileClose(r repo.Request) error {
-	f := sv.F[r.Name()]
-	delete(sv.F, r.Name())
-	if len(sv.F) == 0 {
-		sv.F = make(map[string]*os.File)
+func (s *SaverStruct) getFile(m *pb.Message) (*repo.FileInfo, error) {
+	var (
+		f        *os.File
+		err      error
+		fileName string
+	)
+	folderName := "results" + "/" + m.Ts
+	if len(m.FileName) > 0 {
+		fileName = folderName + "/" + m.FileName
+	} else {
+		fileName = folderName + "/" + m.Ts + ".json"
 	}
-	err := f.Close()
+
+	if FI, ok := s.F[m.FormName]; ok {
+		return FI, nil
+	}
+	f, err = os.Create(fileName)
+	if err != nil {
+		return &repo.FileInfo{}, fmt.Errorf("in saver.ToTable unable to create file %q: %v", fileName, err)
+	}
+
+	return repo.NewFileInfo(f, 0), nil
+}
+
+func (s *SaverStruct) saveToFile(m *pb.Message) (string, error) {
+	FI, err := s.getFile(m)
+	if err != nil {
+		return "", err
+	}
+	n, err := FI.F.WriteAt(m.FieldValue, FI.O)
+	if err != nil {
+		return "", err
+	}
+	FI.AddOffset(int64(n))
+
+	if _, ok := s.F[m.FormName]; !ok {
+		s.F[m.FormName] = FI
+	}
+	return m.Ts + "/" + m.FileName, nil
+}
+
+func (s *SaverStruct) saveToTable(m *pb.Message) error {
+	FI, err := s.getFile(m)
 	if err != nil {
 		return err
 	}
+	fileName := m.Ts + "/" + m.Ts + ".json"
+
+	JSONed, err := json.MarshalIndent(s.T, "", "  ")
+	if err != nil {
+		return fmt.Errorf("in saver.ToTable unable unmarshal map %v: %v", s.T, err)
+	}
+	_, err = FI.F.Write(JSONed)
+	if err != nil {
+		return fmt.Errorf("in saver.ToTable unable to write to file %q: %v", fileName, err)
+	}
 	return nil
 }
 
-// TableSave saves table map on disk as .json file.
-// Tested in saver_test.go
-func (sv *SaverStruct) TableSave(m map[string]repo.NameNumber, ts string) error {
-
-	//logger.L.Infof("saver.TableSave was invoked with m = %v, ts: %q\n", m, ts)
-
-	mSimplified := simplify(m)
-
-	return sv.tableSave(mSimplified, ts)
-}
-
-// simplify returns m with all Number fields removed.
-// Tested in saver_test.go
-func simplify(m map[string]repo.NameNumber) map[string]string {
-	result := make(map[string]string)
-
-	for i, v := range m {
-		result[i] = v.Name
-	}
-	return result
-}
-
-// tableSave performs saving
-func (sv *SaverStruct) tableSave(m map[string]string, ts string) error {
-	folderPath := sv.Path + "/" + ts
-	_, err := os.Stat(folderPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			err = os.Mkdir(folderPath, 0777)
-			if err != nil {
-				return fmt.Errorf("in saver.saveTable unable to create folder %q: %v", folderPath, err)
-			}
-		} else {
-			return fmt.Errorf("in saver.saveTable error while finding folder %q: %v", folderPath, err)
+func (s *SaverStruct) closeFiles() []error {
+	errs := make([]error, 0, 15)
+	for i, v := range s.F {
+		logger.L.Infof("in saver.closeFiles closing file corresponding to %s\n", i)
+		err := v.F.Close()
+		if err != nil {
+			errs = append(errs, err)
 		}
+	}
+	return errs
+}
 
-	}
-	filePath := folderPath + "/" + ts + ".json"
-	f, err := os.Create(filePath)
-	if err != nil {
-		return fmt.Errorf("in saver.saveTable unable to create file %q: %v", filePath, err)
-	}
-	defer f.Close()
-
-	JSONed, err := json.MarshalIndent(m, "", "   ")
-	if err != nil {
-		return fmt.Errorf("in saver.saveTable unable to marshal %v: %v", m, err)
-	}
-	//logger.L.Infof("in saver.tableSave saving %q into %s\n", JSONed, filePath)
-	_, err = f.Write(JSONed)
-	if err != nil {
-		return fmt.Errorf("in saver.saveTable unable write %q to file %q: %v", JSONed, filePath, err)
-	}
-	return nil
+func (s *SaverStruct) reset() {
+	s.T = make(map[string]string)
+	s.F = make(map[string]*repo.FileInfo)
 }
