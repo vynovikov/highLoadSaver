@@ -108,11 +108,13 @@ func (s *SaverStruct) saveToFile(m *pb.Message) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	logger.L.Infof("in saver.SaveToFile m.FieldValue = %q, FI = %v", m.FieldValue, FI)
 	n, err := FI.F.WriteAt(m.FieldValue, FI.O)
 	if err != nil {
 		return "", err
 	}
-	FI.AddOffset(int64(n))
+	k := int64(n)
+	FI.AddOffset(k)
 
 	if _, ok := s.F[m.FormName]; !ok {
 		s.F[m.FormName] = FI
