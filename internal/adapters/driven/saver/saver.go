@@ -9,7 +9,6 @@ import (
 
 	json "github.com/goccy/go-json"
 	"github.com/vynovikov/highLoadSaver/internal/adapters/driver/rpc/pb"
-	"github.com/vynovikov/highLoadSaver/internal/logger"
 	"github.com/vynovikov/highLoadSaver/internal/repo"
 )
 
@@ -79,18 +78,14 @@ func (s *SaverStruct) createFolder(ts string) error {
 	return nil
 }
 
-func (s *SaverStruct) getFile(m *pb.Message) (*repo.FileInfo, error) {
+func (s *SaverStruct) getFileForMessageSaving(m *pb.Message) (*repo.FileInfo, error) {
 	var (
 		f        *os.File
 		err      error
 		fileName string
 	)
 	folderName := "results" + "/" + m.Ts
-	if len(m.FileName) > 0 {
-		fileName = folderName + "/" + m.FileName
-	} else {
-		fileName = folderName + "/" + m.Ts + ".json"
-	}
+	fileName = folderName + "/" + m.FileName
 
 	if FI, ok := s.F[m.FormName]; ok {
 		return FI, nil
@@ -103,12 +98,29 @@ func (s *SaverStruct) getFile(m *pb.Message) (*repo.FileInfo, error) {
 	return repo.NewFileInfo(f, 0), nil
 }
 
+func (s *SaverStruct) getFileForTableSaving(ts string) (*repo.FileInfo, error) {
+	var (
+		f        *os.File
+		err      error
+		fileName string
+	)
+	folderName := "results" + "/" + ts
+	fileName = folderName + "/" + ts + ".json"
+
+	f, err = os.Create(fileName)
+	if err != nil {
+		return &repo.FileInfo{}, fmt.Errorf("in saver.ToTable unable to create file %q: %v", fileName, err)
+	}
+
+	return repo.NewFileInfo(f, 0), nil
+}
+
 func (s *SaverStruct) saveToFile(m *pb.Message) (string, error) {
-	FI, err := s.getFile(m)
+	FI, err := s.getFileForMessageSaving(m)
 	if err != nil {
 		return "", err
 	}
-	logger.L.Infof("in saver.SaveToFile m.FieldValue = %q, FI = %v", m.FieldValue, FI)
+	//logger.L.Infof("in saver.SaveToFile m.FieldValue = %q, FI = %v", m.FieldValue, FI)
 	n, err := FI.F.WriteAt(m.FieldValue, FI.O)
 	if err != nil {
 		return "", err
@@ -123,7 +135,7 @@ func (s *SaverStruct) saveToFile(m *pb.Message) (string, error) {
 }
 
 func (s *SaverStruct) saveToTable(m *pb.Message) error {
-	FI, err := s.getFile(m)
+	FI, err := s.getFileForTableSaving(m.Ts)
 	if err != nil {
 		return err
 	}
@@ -143,7 +155,7 @@ func (s *SaverStruct) saveToTable(m *pb.Message) error {
 func (s *SaverStruct) closeFiles() []error {
 	errs := make([]error, 0, 15)
 	for i, v := range s.F {
-		logger.L.Infof("in saver.closeFiles closing file corresponding to %s\n", i)
+		//logger.L.Infof("in saver.closeFiles closing file corresponding to %s\n", i)
 		err := v.F.Close()
 		if err != nil {
 			errs = append(errs, err)
