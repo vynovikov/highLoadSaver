@@ -54,7 +54,7 @@ func (a *ApplicationStruct) HandleKafkaMessage(m kafka.Message) error {
 	if err != nil {
 		return err
 	}
-	//logger.L.Infof("in application.HandleKafkaMessage %v\n", unmarshalled)
+	//logger.L.Infof("in application.HandleKafkaMessage unmarshalled: %v\n", unmarshalled)
 	return a.S.Save(unmarshalled)
 }
 

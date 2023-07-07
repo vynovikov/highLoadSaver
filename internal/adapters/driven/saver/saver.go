@@ -45,8 +45,7 @@ func (s *SaverStruct) Save(m *pb.Message) error {
 	if len(s.T) == 0 {
 		s.createFolder(m.Ts)
 	}
-	//logger.L.Infof("in saver.Save after receiving m %v, s.T became %v\n", m, s.T)
-
+	//logger.L.Infof("in saver.Save receiving m %v, s.T became %v\n", m, s.T)
 	if len(m.FileName) > 0 {
 		filePath, err := s.saveToFile(m)
 		if err != nil {
@@ -55,9 +54,11 @@ func (s *SaverStruct) Save(m *pb.Message) error {
 		if _, ok := s.T[m.FormName]; !ok {
 			s.T[m.FormName] = filePath
 		}
-	} else {
+	} else { // fix empty formName issue
 		s.T[m.FormName] = string(m.FieldValue)
 	}
+
+	//logger.L.Infof("in saver.Save after receiving m %v, s.T became %v\n", m, s.T)
 
 	if m.Last {
 		err := s.saveToTable(m)
@@ -154,7 +155,7 @@ func (s *SaverStruct) saveToTable(m *pb.Message) error {
 
 func (s *SaverStruct) closeFiles() []error {
 	errs := make([]error, 0, 15)
-	for i, v := range s.F {
+	for _, v := range s.F {
 		//logger.L.Infof("in saver.closeFiles closing file corresponding to %s\n", i)
 		err := v.F.Close()
 		if err != nil {
