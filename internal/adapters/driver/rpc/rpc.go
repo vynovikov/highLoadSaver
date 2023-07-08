@@ -3,7 +3,9 @@ package rpc
 
 import (
 	"context"
+	"os"
 	"sync"
+	"time"
 
 	"github.com/segmentio/kafka-go"
 	"github.com/vynovikov/highLoadSaver/internal/adapters/application"
@@ -20,9 +22,25 @@ type Receiver interface {
 }
 
 func NewReceiver(t string, a application.Application) *ReceiverStruct {
+	var (
+		conn *kafka.Conn
+		err  error
+	)
+	host := os.Getenv("KAFKA_HOSTNAME")
+
+	for {
+		conn, err = kafka.Dial("tcp", host+":9092")
+		if err != nil {
+			logger.L.Errorf("in rpc.GetKafkaProducer error %v", err)
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		break
+	}
+	conn.Close()
 
 	kr := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:   []string{"localhost:9092"},
+		Brokers:   []string{host + ":9092"},
 		Topic:     t,
 		GroupID:   "1",
 		Partition: 0,
@@ -38,6 +56,9 @@ func NewReceiver(t string, a application.Application) *ReceiverStruct {
 }
 
 func (r *ReceiverStruct) Run() {
+
+	logger.L.Infof("waiting for new messages from kafka %s topic ...\n", r.kr.Config().Topic)
+
 	for {
 		m, err := r.kr.FetchMessage(context.Background())
 		if err != nil {
