@@ -46,16 +46,18 @@ func (s *SaverStruct) Save(m *pb.Message) error {
 		s.createFolder(m.Ts)
 	}
 	//logger.L.Infof("in saver.Save receiving m %v, s.T became %v\n", m, s.T)
-	if len(m.FileName) > 0 {
-		filePath, err := s.saveToFile(m)
-		if err != nil {
-			return err
+	if len(m.FormName) > 0 {
+		if len(m.FileName) > 0 {
+			filePath, err := s.saveToFile(m)
+			if err != nil {
+				return err
+			}
+			if _, ok := s.T[m.FormName]; !ok {
+				s.T[m.FormName] = filePath
+			}
+		} else {
+			s.T[m.FormName] = string(m.FieldValue)
 		}
-		if _, ok := s.T[m.FormName]; !ok {
-			s.T[m.FormName] = filePath
-		}
-	} else { // fix empty formName issue
-		s.T[m.FormName] = string(m.FieldValue)
 	}
 
 	//logger.L.Infof("in saver.Save after receiving m %v, s.T became %v\n", m, s.T)
