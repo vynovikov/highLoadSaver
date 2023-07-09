@@ -26,10 +26,11 @@ func NewReceiver(t string, a application.Application) *ReceiverStruct {
 		conn *kafka.Conn
 		err  error
 	)
-	host := os.Getenv("KAFKA_HOSTNAME")
+	kafkaHostname := os.Getenv("KAFKA_HOSTNAME")
+	kafkaPort := os.Getenv("KAFKA_PORT")
 
 	for {
-		conn, err = kafka.Dial("tcp", host+":9092")
+		conn, err = kafka.Dial("tcp", kafkaHostname+":"+kafkaPort)
 		if err != nil {
 			logger.L.Errorf("in rpc.GetKafkaProducer error %v", err)
 			time.Sleep(5 * time.Second)
@@ -40,7 +41,7 @@ func NewReceiver(t string, a application.Application) *ReceiverStruct {
 	conn.Close()
 
 	kr := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:   []string{host + ":9092"},
+		Brokers:   []string{kafkaHostname + ":" + kafkaPort},
 		Topic:     t,
 		GroupID:   "1",
 		Partition: 0,
