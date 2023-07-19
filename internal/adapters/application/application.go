@@ -6,6 +6,7 @@ import (
 	"github.com/segmentio/kafka-go"
 	"github.com/vynovikov/highLoadSaver/internal/adapters/driven/saver"
 	"github.com/vynovikov/highLoadSaver/internal/adapters/driver/rpc/pb"
+	"github.com/vynovikov/highLoadSaver/internal/logger"
 	"google.golang.org/protobuf/proto"
 
 	"sync"
@@ -38,12 +39,6 @@ func NewApp(s saver.Saver) (*ApplicationStruct, chan struct{}) {
 
 type Application interface {
 	HandleKafkaMessage(kafka.Message) error
-	/*
-		FileClose(repo.Request) error
-		TableSave(string) error
-		ClearStore(string)
-		LastAction(string)
-	*/
 	Stop()
 }
 
@@ -54,7 +49,7 @@ func (a *ApplicationStruct) HandleKafkaMessage(m kafka.Message) error {
 	if err != nil {
 		return err
 	}
-	//logger.L.Infof("in application.HandleKafkaMessage unmarshalled: %v\n", unmarshalled)
+	logger.L.Infof("in application.HandleKafkaMessage unmarshalled: %v\n", unmarshalled)
 	return a.S.Save(unmarshalled)
 }
 

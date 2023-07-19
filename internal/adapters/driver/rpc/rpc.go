@@ -4,6 +4,7 @@ package rpc
 import (
 	"context"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -13,62 +14,49 @@ import (
 )
 
 type ReceiverStruct struct {
-	A  application.Application
-	kr *kafka.Reader
-	l  sync.Mutex
+	A application.Application
+	c *kafka.Conn
+	l sync.Mutex
 }
 type Receiver interface {
 	Run()
 }
 
-func NewReceiver(t string, a application.Application) *ReceiverStruct {
-	var (
-		conn *kafka.Conn
-		err  error
-	)
-	kafkaHostname := os.Getenv("KAFKA_HOSTNAME")
-	kafkaPort := os.Getenv("KAFKA_PORT")
-
-	for {
-		conn, err = kafka.Dial("tcp", kafkaHostname+":"+kafkaPort)
-		if err != nil {
-			logger.L.Errorf("in rpc.GetKafkaProducer error %v", err)
-			time.Sleep(5 * time.Second)
-			continue
-		}
-		break
+func NewReceiver(a application.Application) *ReceiverStruct {
+	kafkaAddr := os.Getenv("KAFKA_ADDR")
+	topic := os.Getenv("KAFKA_TOPIC")
+	partition, err := strconv.Atoi(os.Getenv("KAFKA_PARTITION"))
+	if err != nil {
+		logger.L.Errorf("in main.main cannot convert %v\n", err)
 	}
-	conn.Close()
-
-	kr := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:   []string{kafkaHostname + ":" + kafkaPort},
-		Topic:     t,
-		GroupID:   "1",
-		Partition: 0,
-		MaxBytes:  10e6, // 10MB
-	})
+	logger.L.Infof("in rpc.NewReceiver addr = %s, topic = %s, partition = %d\n", kafkaAddr, topic, partition)
+	conn, err := kafka.DialLeader(context.Background(), "tcp", kafkaAddr, topic, partition)
+	if err != nil {
+		logger.L.Errorf("in rpc.NewReceiver cannot dial %f\n", err)
+		time.Sleep(time.Second * 20)
+		if conn != nil {
+			conn.Close()
+		}
+	}
+	//conn.Close()
 
 	r := &ReceiverStruct{
-		A:  a,
-		kr: kr,
+		A: a,
+		c: conn,
 	}
 
 	return r
 }
 
 func (r *ReceiverStruct) Run() {
-
-	logger.L.Infof("waiting for new messages from kafka %s topic ...\n", r.kr.Config().Topic)
+	logger.L.Infoln("run invoked")
+	batch := r.c.ReadBatch(10, 1e6)
+	logger.L.Infof("in rpc.Run waiting for new messages from kafka %s topic ...\n", os.Getenv("KAFKA_TOPIC"))
 
 	for {
-		m, err := r.kr.FetchMessage(context.Background())
+		m, err := batch.ReadMessage()
 		if err != nil {
-			break
-		}
-		//logger.L.Infof("message at offset %d: %s = %q", m.Offset, string(m.Key), string(m.Value))
-		err = r.kr.CommitMessages(context.Background(), m)
-		if err != nil {
-			logger.L.Errorf("in rpc.Run cannot commit message: %v\n", err)
+
 		}
 		err = r.A.HandleKafkaMessage(m)
 		if err != nil {

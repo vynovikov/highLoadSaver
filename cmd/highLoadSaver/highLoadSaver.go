@@ -20,7 +20,7 @@ func main() {
 		logger.L.Errorf("in main.main cannot create saver: %v\n", err)
 	}
 	app, done := application.NewApp(saver)
-	receiver := rpc.NewReceiver("data", app)
+	receiver := rpc.NewReceiver(app)
 	go receiver.Run()
 	go SignalListen(app)
 	<-done

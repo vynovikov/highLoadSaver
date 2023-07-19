@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: savers-cm
+  namespace: savers-ns
+data:
+  hostname: highloadsaver
+  kafka_addr: my-cluster-kafka-bootstrap.kafka.svc.cluster.local
+  kafka_topic: 'data'
+  kafka_partition: '0'

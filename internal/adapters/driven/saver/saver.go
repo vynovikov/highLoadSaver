@@ -43,7 +43,10 @@ func NewSaver(path string) (*SaverStruct, error) {
 
 func (s *SaverStruct) Save(m *pb.Message) error {
 	if len(s.T) == 0 {
-		s.createFolder(m.Ts)
+		err := s.createFolder(m.Ts)
+		if err != nil {
+			return err
+		}
 	}
 	//logger.L.Infof("in saver.Save receiving m %v, s.T became %v\n", m, s.T)
 	if len(m.FormName) > 0 {

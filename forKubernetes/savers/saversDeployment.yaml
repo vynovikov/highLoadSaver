@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: 
+  name: savers-deployment
+  namespace: savers-ns
+  labels:
+    app: savers-labels
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: savers-selector
+  template:
+    metadata:
+      labels:
+        app: savers-selector
+    spec:
+      containers:
+        - name: saver
+          image: vynovikov/highloadsaver:0.6
+          env:
+            - name: KAFKA_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: savers-cm
+                  key: kafka_addr
+            - name: KAFKA_TOPIC
+              valueFrom:
+                configMapKeyRef:
+                  name: savers-cm
+                  key: kafka_topic
+            - name: KAFKA_PARTITION
+              valueFrom:
+                configMapKeyRef:
+                  name: savers-cm
+                  key: kafka_partition            
