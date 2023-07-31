@@ -10,12 +10,14 @@ import (
 
 	"github.com/segmentio/kafka-go"
 	"github.com/vynovikov/highLoadSaver/internal/adapters/application"
+	"github.com/vynovikov/highLoadSaver/internal/adapters/driver/rpc/pb"
 	"github.com/vynovikov/highLoadSaver/internal/logger"
+	"google.golang.org/protobuf/proto"
 )
 
 type ReceiverStruct struct {
 	A application.Application
-	c *kafka.Conn
+	R *kafka.Reader
 	l sync.Mutex
 }
 type Receiver interface {
@@ -24,13 +26,14 @@ type Receiver interface {
 
 func NewReceiver(a application.Application) *ReceiverStruct {
 	kafkaAddr := os.Getenv("KAFKA_ADDR")
-	topic := os.Getenv("KAFKA_TOPIC")
-	partition, err := strconv.Atoi(os.Getenv("KAFKA_PARTITION"))
+	kafkaTopic := os.Getenv("KAFKA_TOPIC")
+	kafkaPartitionString := os.Getenv("KAFKA_PARTITION")
+	partition, err := strconv.Atoi(kafkaPartitionString)
 	if err != nil {
 		logger.L.Errorf("in main.main cannot convert %v\n", err)
 	}
-	logger.L.Infof("in rpc.NewReceiver addr = %s, topic = %s, partition = %d\n", kafkaAddr, topic, partition)
-	conn, err := kafka.DialLeader(context.Background(), "tcp", kafkaAddr, topic, partition)
+	//logger.L.Infof("in rpc.NewReceiver addr = %s, topic = %s, partition = %d\n", kafkaAddr, kafkaTopic, partition)
+	conn, err := kafka.DialLeader(context.Background(), "tcp", kafkaAddr, kafkaTopic, partition)
 	if err != nil {
 		logger.L.Errorf("in rpc.NewReceiver cannot dial %f\n", err)
 		time.Sleep(time.Second * 20)
@@ -38,29 +41,62 @@ func NewReceiver(a application.Application) *ReceiverStruct {
 			conn.Close()
 		}
 	}
-	//conn.Close()
+	r := kafka.NewReader(kafka.ReaderConfig{
+		Brokers:   []string{kafkaAddr},
+		GroupID:   kafkaPartitionString,
+		Topic:     kafkaTopic,
+		Partition: partition,
+		MaxBytes:  10e6, // 10MB
+	})
 
-	r := &ReceiverStruct{
+	rcvr := &ReceiverStruct{
 		A: a,
-		c: conn,
+		R: r,
 	}
 
-	return r
+	return rcvr
 }
 
 func (r *ReceiverStruct) Run() {
-	logger.L.Infoln("run invoked")
-	batch := r.c.ReadBatch(10, 1e6)
-	logger.L.Infof("in rpc.Run waiting for new messages from kafka %s topic ...\n", os.Getenv("KAFKA_TOPIC"))
+	logger.L.Infoln("waiting for kafka messages...")
 
 	for {
-		m, err := batch.ReadMessage()
-		if err != nil {
+		m, err := r.R.FetchMessage(context.Background())
 
-		}
-		err = r.A.HandleKafkaMessage(m)
 		if err != nil {
+			logger.L.Errorf("in rpc.Run cannot read from kafka %v\n", err)
+			return
+		}
+		logger.L.Infof("in rpc.Run from message have read topic: %s, partition = %d, key: %q, value: %q\n", m.Topic, m.Partition, m.Key, m.Value)
+
+		if err := r.R.CommitMessages(context.Background(), m); err != nil {
+			logger.L.Errorf("in rpc.Run failed to commit messages: %v\n", err)
+		}
+		mes := &pb.Message{}
+
+		if err = proto.Unmarshal(m.Value, mes); err != nil {
+			logger.L.Errorf("in rpc.Run failed to unmarshal: %v\n", err)
+		}
+		logger.L.Infof("in rpc.Run unmarshalled message: %v\n", mes)
+
+		if err = r.A.HandleKafkaMessage(m); err != nil {
 			logger.L.Errorf("in rpc.Run cannot handle message: %v\n", err)
 		}
 	}
+
+	/*
+		batch := r.c.ReadBatch(10, 1e6)
+		logger.L.Infof("in rpc.Run waiting for new messages from kafka %s topic ...\n", os.Getenv("KAFKA_TOPIC"))
+
+		for {
+			m, err := batch.ReadMessage()
+			if err != nil {
+
+			}
+			err = r.A.HandleKafkaMessage(m)
+			if err != nil {
+				logger.L.Errorf("in rpc.Run cannot handle message: %v\n", err)
+			}
+		}
+	*/
 }

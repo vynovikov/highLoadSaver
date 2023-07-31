@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: saver
-          image: vynovikov/highloadsaver:0.6
+          image: vynovikov/highloadsaver:0.9
           env:
             - name: KAFKA_ADDR
               valueFrom:
@@ -33,4 +33,11 @@ spec:
               valueFrom:
                 configMapKeyRef:
                   name: savers-cm
-                  key: kafka_partition            
+                  key: kafka_partition
+          volumeMounts:
+          - mountPath: /results
+            name: savers-volume
+      volumes:
+        - name: savers-volume
+          emptyDir:
+            sizeLimit: 100Mi            
