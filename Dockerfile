@@ -4,7 +4,8 @@ WORKDIR /highLoadSaver
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o highLoadSaver ./cmd/highLoadSaver
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o highLoadSaver ./cmd/highLoadSaver && \
+	mkdir /results
 
 CMD ./highLoadSaver
 

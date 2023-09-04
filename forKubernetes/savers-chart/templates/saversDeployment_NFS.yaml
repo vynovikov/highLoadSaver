@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: 
+  name: {{ include "savers-chart.fullname" . }}-deployment
+  namespace: {{ include "savers-chart.fullname" . }}-ns
+  labels:
+    app: {{- include "savers-chart.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "savers-chart.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "savers-chart.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Values.fullnameOverride | trimSuffix "-" }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          env:
+            - name: KAFKA_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: savers-cm
+                  key: kafka_addr
+            - name: KAFKA_TOPIC
+              valueFrom:
+                configMapKeyRef:
+                  name: savers-cm
+                  key: kafka_topic
+            - name: KAFKA_PARTITION
+              valueFrom:
+                configMapKeyRef:
+                  name: savers-cm
+                  key: kafka_partition
+          volumeMounts:
+          - name: savers-volume
+            mountPath: /results
+      volumes:
+        - name: savers-volume
+          persistentVolumeClaim:
+            claimName: savers-pvc

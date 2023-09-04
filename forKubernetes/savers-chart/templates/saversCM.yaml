@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "savers-chart.fullname" . }}-cm
+  namespace: {{ include "savers-chart.fullname" . }}-ns
+  labels:
+    {{- include "savers-chart.labels" . | nindent 4 }}
+data:
+  hostname: highloadsaver
+  kafka_addr: my-cluster-kafka-bootstrap.kafka.svc.cluster.local
+  kafka_topic: 'data'
+  kafka_partition: '0'
+  kafka_partition_1: '0'
+  kafka_partition_2: '1'
