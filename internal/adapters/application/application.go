@@ -43,7 +43,7 @@ type Application interface {
 }
 
 func (a *ApplicationStruct) HandleKafkaMessage(m kafka.Message) error {
-	unmarshalled := &pb.Message{}
+	unmarshalled := &pb.MessageHeader{}
 
 	err := proto.Unmarshal(m.Value, unmarshalled)
 	if err != nil {

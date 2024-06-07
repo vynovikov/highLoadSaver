@@ -1,4 +1,4 @@
-FROM golang:1.21-rc-bullseye as build
+FROM golang:latest as build
 
 WORKDIR /highLoadSaver
 

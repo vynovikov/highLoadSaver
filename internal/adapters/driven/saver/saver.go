@@ -13,7 +13,7 @@ import (
 )
 
 type Saver interface {
-	Save(*pb.Message) error
+	Save(*pb.MessageHeader) error
 }
 
 type SaverStruct struct {
@@ -41,7 +41,7 @@ func NewSaver(path string) (*SaverStruct, error) {
 	return &SaverStruct{Path: path, F: f, T: t}, nil
 }
 
-func (s *SaverStruct) Save(m *pb.Message) error {
+func (s *SaverStruct) Save(m *pb.MessageHeader) error {
 	if len(s.T) == 0 {
 		err := s.createFolder(m.Ts)
 		if err != nil {
@@ -59,13 +59,13 @@ func (s *SaverStruct) Save(m *pb.Message) error {
 				s.T[m.FormName] = filePath
 			}
 		} else {
-			s.T[m.FormName] = string(m.FieldValue)
+			s.T[m.FormName] = string(m.FormName)
 		}
 	}
 
 	//logger.L.Infof("in saver.Save after receiving m %v, s.T became %v\n", m, s.T)
 
-	if m.Last {
+	if m.First {
 		err := s.saveToTable(m)
 		if err != nil {
 			return err
@@ -84,7 +84,7 @@ func (s *SaverStruct) createFolder(ts string) error {
 	return nil
 }
 
-func (s *SaverStruct) getFileForMessageSaving(m *pb.Message) (*repo.FileInfo, error) {
+func (s *SaverStruct) getFileForMessageSaving(m *pb.MessageHeader) (*repo.FileInfo, error) {
 	var (
 		f        *os.File
 		err      error
@@ -121,13 +121,13 @@ func (s *SaverStruct) getFileForTableSaving(ts string) (*repo.FileInfo, error) {
 	return repo.NewFileInfo(f, 0), nil
 }
 
-func (s *SaverStruct) saveToFile(m *pb.Message) (string, error) {
+func (s *SaverStruct) saveToFile(m *pb.MessageHeader) (string, error) {
 	FI, err := s.getFileForMessageSaving(m)
 	if err != nil {
 		return "", err
 	}
 	//logger.L.Infof("in saver.SaveToFile m.FieldValue = %q, FI = %v", m.FieldValue, FI)
-	n, err := FI.F.WriteAt(m.FieldValue, FI.O)
+	n, err := FI.F.WriteAt([]byte(m.FormName), FI.O)
 	if err != nil {
 		return "", err
 	}
@@ -140,7 +140,7 @@ func (s *SaverStruct) saveToFile(m *pb.Message) (string, error) {
 	return m.Ts + "/" + m.FileName, nil
 }
 
-func (s *SaverStruct) saveToTable(m *pb.Message) error {
+func (s *SaverStruct) saveToTable(m *pb.MessageHeader) error {
 	FI, err := s.getFileForTableSaving(m.Ts)
 	if err != nil {
 		return err

@@ -61,6 +61,7 @@ func NewReceiver(a application.Application) *ReceiverStruct {
 }
 
 func (r *ReceiverStruct) Run() {
+
 	logger.L.Infoln("waiting for kafka messages...")
 
 	for {
@@ -69,6 +70,7 @@ func (r *ReceiverStruct) Run() {
 		if err != nil {
 			logger.L.Errorf("in rpc.Run cannot read from kafka: %v\n", err)
 			if strings.Contains(err.Error(), "connection refused") {
+
 				time.Sleep(time.Second * 5)
 				r = NewReceiver(r.A)
 				continue
@@ -79,18 +81,25 @@ func (r *ReceiverStruct) Run() {
 		if err := r.R.CommitMessages(context.Background(), m); err != nil {
 			logger.L.Errorf("in rpc.Run failed to commit messages: %v\n", err)
 		}
-		mes := &pb.Message{}
+		header, body := &pb.MessageHeader{}, &pb.MessageBody{}
 
-		if err = proto.Unmarshal(m.Value, mes); err != nil {
+		if err = proto.Unmarshal(m.Key, header); err != nil {
 			logger.L.Errorf("in rpc.Run failed to unmarshal: %v\n", err)
 		}
-		logger.L.Infof("in rpc.Run unmarshalled message: %v\n", mes)
+		logger.L.Infof("in rpc.Run unmarshalled body: %v\n", header)
 
-		if err = r.A.HandleKafkaMessage(m); err != nil {
-			logger.L.Errorf("in rpc.Run cannot handle message: %v\n", err)
+		if err = proto.Unmarshal(m.Value, body); err != nil {
+			logger.L.Errorf("in rpc.Run failed to unmarshal: %v\n", err)
 		}
-	}
+		logger.L.Infof("in rpc.Run unmarshalled body: %v\n", body)
 
+	}
+	/*
+			if err = r.A.HandleKafkaMessage(m); err != nil {
+				logger.L.Errorf("in rpc.Run cannot handle message: %v\n", err)
+			}
+		}
+	*/
 	/*
 		batch := r.c.ReadBatch(10, 1e6)
 		logger.L.Infof("in rpc.Run waiting for new messages from kafka %s topic ...\n", os.Getenv("KAFKA_TOPIC"))

@@ -2,10 +2,14 @@ syntax = "proto3";
 package serialize;
 option go_package = "./pb";
 
-message Message{
+message MessageHeader{
     string ts = 1;
     string form_name = 2;
     string file_name = 3;
-    bytes field_value = 4;
-    bool last = 5;
+    bool first =4;
+}
+
+message MessageBody{
+    bytes body = 1;
+    bool last = 2;
 }
