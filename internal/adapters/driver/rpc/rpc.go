@@ -70,6 +70,10 @@ func (r *ReceiverStruct) Run() {
 		m, err := r.R.FetchMessage(context.Background())
 
 		if err != nil {
+
+			// TODO fix ERROR[06.08.2024 18:17:20] in rpc.Run cannot read from kafka: failed to dial:
+			//failed to open connection to [http://localhost:29092]:9092: dial tcp: lookup http://localhost:29092: no such host
+
 			logger.L.Errorf("in rpc.Run cannot read from kafka: %v\n", err)
 			if strings.Contains(err.Error(), "connection refused") {
 
