@@ -3,6 +3,7 @@ package rpc
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -27,6 +28,7 @@ type Receiver interface {
 
 func NewReceiver(a application.Application) *ReceiverStruct {
 	kafkaAddr := os.Getenv("KAFKA_ADDR")
+	kafkaPort := os.Getenv("KAFKA_PORT")
 	kafkaTopic := os.Getenv("KAFKA_TOPIC")
 	kafkaPartitionString := os.Getenv("KAFKA_PARTITION")
 	logger.L.Infof("in rpc.NewReceiver partition string: %s\n", kafkaPartitionString)
@@ -34,8 +36,8 @@ func NewReceiver(a application.Application) *ReceiverStruct {
 	if err != nil {
 		logger.L.Errorf("in main.main cannot convert %v\n", err)
 	}
-	logger.L.Infof("in rpc.NewReceiver addr = %s, topic = %s, partition = %d\n", kafkaAddr, kafkaTopic, partition)
-	conn, err := kafka.DialLeader(context.Background(), "tcp", kafkaAddr, kafkaTopic, partition)
+	logger.L.Infof("in rpc.NewReceiver addr = %s:%s, topic = %s, partition = %d\n", kafkaAddr, kafkaPort, kafkaTopic, partition)
+	conn, err := kafka.DialLeader(context.Background(), "tcp", fmt.Sprintf("%s:%s", kafkaAddr, kafkaPort), kafkaTopic, partition)
 	if err != nil {
 		logger.L.Errorf("in rpc.NewReceiver cannot dial: %w\n", err)
 		time.Sleep(time.Second * 20)
@@ -45,7 +47,7 @@ func NewReceiver(a application.Application) *ReceiverStruct {
 	}
 	logger.L.Infoln("in rpc.NewReceiver dialed successfully")
 	r := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:   []string{kafkaAddr},
+		Brokers:   []string{fmt.Sprintf("%s:%s", kafkaAddr, kafkaPort)},
 		GroupID:   kafkaPartitionString,
 		Topic:     kafkaTopic,
 		Partition: partition,

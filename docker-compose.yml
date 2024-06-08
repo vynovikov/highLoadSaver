@@ -5,8 +5,11 @@ services:
     depends_on:
       kafka:
         condition: service_started
+    environment:
+      KAFKA_ADDR: http://localhost:29092
+      KAFKA_TOPIC: topic1
     ports:
-      - 30000:3000
+      - 3000:3000
   
   highloadsaver:
     image: vynovikov/highloadsaver:0.1
@@ -14,7 +17,8 @@ services:
       kafka:
         condition: service_started
     environment:
-      KAFKA_ADDR: kafka
+      KAFKA_ADDR: http://localhost
+      KAFKA_PORT: 29092
       KAFKA_TOPIC: topic1
       KAFKA_PARTITION: 0
   
@@ -39,8 +43,3 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-    healthcheck:
-        test: ["CMD", "curl", "-f", "http://localhost:29092"]
-        interval: 30s
-        timeout: 10s
-        retries: 5
