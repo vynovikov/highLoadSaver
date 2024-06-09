@@ -6,7 +6,8 @@ services:
       kafka:
         condition: service_started
     environment:
-      KAFKA_ADDR: http://localhost:29092
+      KAFKA_ADDR: kafka
+      KAFKA_PORT: 29092
       KAFKA_TOPIC: topic1
     ports:
       - 3000:3000
@@ -17,10 +18,10 @@ services:
       kafka:
         condition: service_started
     environment:
-      KAFKA_ADDR: http://localhost
+      KAFKA_ADDR: kafka
       KAFKA_PORT: 29092
       KAFKA_TOPIC: topic1
-      KAFKA_PARTITION: 0
+      KAFKA_CONSUMER_GROUP_ID: 0
   
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.4
@@ -43,3 +44,20 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  init-kafka:
+    container_name: project_name-init-kafka
+    image: confluentinc/cp-kafka:7.4.4
+    depends_on:
+      - kafka
+    entrypoint: [ '/bin/sh', '-c' ]
+    command: |
+      "
+      # blocks until kafka is reachable
+      
+      echo -e 'Creating kafka topics'
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic topic1 --replication-factor 1 --partitions 1  
+
+      echo -e 'Created kafka topics:'
+      kafka-topics --bootstrap-server kafka:9092 --list
+      "
