@@ -7,7 +7,7 @@ services:
         condition: service_started
     environment:
       KAFKA_ADDR: kafka
-      KAFKA_PORT: 29092
+      KAFKA_PORT: 9092
       KAFKA_TOPIC: topic1
     ports:
       - 3000:3000
@@ -19,7 +19,7 @@ services:
         condition: service_started
     environment:
       KAFKA_ADDR: kafka
-      KAFKA_PORT: 29092
+      KAFKA_PORT: 9092
       KAFKA_TOPIC: topic1
       KAFKA_CONSUMER_GROUP_ID: 0
   
